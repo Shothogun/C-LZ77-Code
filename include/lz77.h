@@ -115,6 +115,20 @@ namespace LZ77
      * and return the offset and length values
     */
     std::tuple<int, int> MatchPattern();
+
+    //! Search Matching
+    /*
+     * Seeks on the search buffer matching sequences
+     * with current encoding character in the lookahead buffer
+    */
+    std::tuple<int, int> SeachMatching();
+
+    //! Search Matching
+    /*
+     * Seeks on the search buffer matching sequences
+     * with current encoding character in the lookahead buffer
+    */
+    std::tuple<int, int> LargestMatch();
   };
 
   //! Decoder class

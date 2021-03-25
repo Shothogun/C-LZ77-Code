@@ -101,7 +101,8 @@ void LZ77::Encoder::Encode()
     std::cout << "<" << offset << "," << length << ",";
     std::cout << symbol << ">\n";
 
-    std::cout << "Search Buffer tree:" << "\n";
+    std::cout << "Search Buffer tree:"
+              << "\n";
     for (auto const &a : this->search_buffer_tree_)
     {
       std::cout << a
@@ -152,8 +153,7 @@ std::tuple<int, int> LZ77::Encoder::MatchPattern()
   // }
 
   // Search matching
-
-  // Deduce offset and length
+  std::tie(offset, length) = this->SeachMatching();
 
   // Updates the Binary Search Tree
   this->UpdateSearchBufferTree();
@@ -185,4 +185,72 @@ void LZ77::Encoder::UpdateSearchBufferTree()
     this->nodes_to_exclude.erase(this->nodes_to_exclude.begin());
     this->search_buffer_tree_.erase(next_to_delete);
   }
+}
+
+std::tuple<int, int> LZ77::Encoder::SeachMatching()
+{
+  // Offset returning value
+  int offset = 0;
+
+  // Length returning value
+  int length = 0;
+
+  // Current character being analysed from the
+  // content file
+  std::string current_character;
+  current_character = this->file_content_[this->current_character_index_];
+
+
+
+  // First character char from the
+  // matching string sequence from search buffer
+  std::string match_first_character;
+
+  // First character always transmit <0,0,symbol>
+  if (this->search_buffer_tree_.size() == 0)
+  {
+    return std::make_tuple(0, 0);
+  }
+
+  // Matching search on tree
+  else
+  {
+    auto it = std::lower_bound(
+        this->search_buffer_tree_.begin(),
+        this->search_buffer_tree_.end(),
+        current_character);
+
+    // If there's a match, gets a first 
+    // character from the match
+    if (it != this->search_buffer_tree_.end())
+    {
+      match_first_character = (*it)[0];
+    }
+
+    // No match!
+    if (it == this->search_buffer_tree_.end())
+    {
+      return std::make_tuple(0, 0);
+    }
+
+    // The found sequence doesn't have
+    // the same first character
+    else if (current_character != match_first_character)
+    {
+      return std::make_tuple(0, 0);
+    }
+
+    // Matching lenght computation
+    else
+    {
+      std::tie(offset, length) = this->LargestMatch();
+    }
+  }
+
+  return std::make_tuple(offset, length);
+}
+
+std::tuple<int, int> LZ77::Encoder::LargestMatch()
+{
+  return std::make_tuple(0, 0);
 }
