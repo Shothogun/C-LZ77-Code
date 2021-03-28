@@ -32,3 +32,8 @@
 *.app
 
 LZ77
+out
+
+*.csv
+*.json
+*.txt

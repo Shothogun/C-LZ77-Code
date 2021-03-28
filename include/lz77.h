@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <algorithm>
 #include <string>
 #include <vector>
 #include <set>
@@ -30,9 +31,24 @@ namespace LZ77
   class Encoder
   {
   private:
+    //! Log values to print
+    /*
+     * Entropy and average bits per symbol rate
+    */
+    double entropy_;
+    double average_rate_;
+
+    //! Symbol Table
+    /*
+     * Symbol table
+     * 
+     * Maps a symbol to its probability
+    */
+    std::map<std::string, double> symbol_table_;
+
     //! File string stream
     /* Stores the sequence string index position in the file content.
-     * This sequence is the all possible sequences inside the
+     * This sequence is one the all possible sequences inside the
      * search buffer, as known as the binary search tree node.
      */
     std::map<std::string, int> sequence_position_;
@@ -62,14 +78,14 @@ namespace LZ77
      *  Search buffer size value used especially
      *  in the encoding process
     */
-    const int search_buffer_size_ = 6;
+    const int search_buffer_size_ = 7;
 
     //! Look Ahead Buffer
     /*
      *  Look ahead buffer size value used especially
      *  in the encoding process  
     */
-    const int look_ahead_buffer_size_ = 5;
+    const int look_ahead_buffer_size_ = 6;
 
     //! Current charater index
     /*
@@ -87,11 +103,51 @@ namespace LZ77
     std::multiset<std::string> search_buffer_tree_;
 
   public:
+    //! characters counter
+    /*
+     * Increases n_characters on the character_counter variable.
+    */
+    void CountCharacters(int n_characters);
+
+    //! How many Characters
+    /*
+     * Returns the number of characters from read
+     * from the file
+    */
+    int HowManyCharacters();
+
+    //! Characters quantity
+    /*
+     * Returns the number of characters from read
+     * from the file
+    */
+    int CharactersQuantity();
+
     //! Fill stream
     /*
      * Fill the Coder buffer with the file's content
     */
     void FillBuffer(std::string file_path);
+
+    //! Count Symbol
+    /*
+     * Count the read symbol in the symbol_table
+    */
+    void CountSymbol(std::string character);
+
+    //! Get Symbol Table
+    /*
+     * Returns Symbol Table
+    */
+    std::map<std::string, double> GetSymbolTable();
+
+    //! Computes probability table
+    /*
+     * This function computes the probability table 
+     * from of the symbol table after populate it with its
+     * counting in the source input file.
+    */
+    void ComputeProbabilityTable();
 
     //! Encode function
     /*
@@ -107,7 +163,7 @@ namespace LZ77
      * adding the (search buffer + look ahead buffer ending) node
      * and removing (search buffer + look ahead buffer beginning)
     */
-    void UpdateSearchBufferTree();
+    void UpdateSearchBufferTree(int length);
 
     //! Match Pattern function
     /*
@@ -121,14 +177,16 @@ namespace LZ77
      * Seeks on the search buffer matching sequences
      * with current encoding character in the lookahead buffer
     */
-    std::tuple<int, int> SeachMatching();
+    std::tuple<int, int> SearchMatching();
 
     //! Search Matching
     /*
      * Seeks on the search buffer matching sequences
      * with current encoding character in the lookahead buffer
     */
-    std::tuple<int, int> LargestMatch();
+    std::tuple<int, int> LargestMatch(std::string match_string);
+
+    void FlushProbabilityTableAsCSV();
   };
 
   //! Decoder class

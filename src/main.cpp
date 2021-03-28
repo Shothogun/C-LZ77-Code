@@ -11,5 +11,6 @@ int main(int argc, char *argv[])
   lz77_encoder->FillBuffer(file_name);
   lz77_encoder->Encode();
 
+
   return 0;  
 }

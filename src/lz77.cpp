@@ -1,6 +1,24 @@
 #include "../include/lz77.h"
 #define DEBUG 1
 
+void LZ77::Encoder::CountSymbol(std::string character)
+{
+  this->symbol_table_[character]++;
+}
+
+std::map<std::string, double> LZ77::Encoder::GetSymbolTable()
+{
+  return this->symbol_table_;
+}
+
+void LZ77::Encoder::ComputeProbabilityTable()
+{
+  for (auto &x : this->GetSymbolTable())
+  {
+    this->symbol_table_[x.first] /= this->file_content_.size();
+  }
+}
+
 void LZ77::Encoder::FillBuffer(std::string file_path)
 {
   // Read file as binary data
@@ -8,6 +26,9 @@ void LZ77::Encoder::FillBuffer(std::string file_path)
 
   // File's input line read
   std::string line_read;
+
+  // Single character from file content
+  std::string character;
 
   // Error, file no found
   if (!f)
@@ -25,6 +46,33 @@ void LZ77::Encoder::FillBuffer(std::string file_path)
     this->file_content_ += line_read;
   }
   f.close();
+
+  // Fills Symbol table
+  for (auto &c : this->file_content_)
+  {
+    character = c;
+    this->CountSymbol(character);
+    character.clear();
+  }
+
+  this->ComputeProbabilityTable();
+
+  this->FlushProbabilityTableAsCSV();
+
+#if DEBUG
+  std::cout << "-----------------------------\n"
+            << "-- Symbol Probabilities -----\n"
+            << "-----------------------------\n";
+
+  // As bytes
+  for (auto const &x : this->GetSymbolTable())
+  {
+    std::cout << x.first
+              << ':'
+              << x.second
+              << std::endl;
+  }
+#endif
 }
 
 void LZ77::Encoder::Encode()
@@ -39,13 +87,13 @@ void LZ77::Encoder::Encode()
 
 #if DEBUG
   for (this->current_character_index_ = 0;
-       this->current_character_index_ <=
-       3;
+       this->current_character_index_ <
+       5;
        this->current_character_index_++)
 #else
   for (this->current_character_index_ = 0;
-       this->current_character_index_ <=
-       this->file_content_.size() - this->look_ahead_buffer_size_;
+       this->current_character_index_ <
+       this->file_content_.size();
        this->current_character_index_++)
 #endif
   {
@@ -85,21 +133,17 @@ void LZ77::Encoder::Encode()
     {
       symbol =
           this->file_content_[next_symbol_index];
-
-      this->current_character_index_ = next_symbol_index;
     }
 
     this->output_encoding_ += symbol;
 
-    // Next character
-    if (length > 1)
-    {
-      this->current_character_index_ += (1 + length);
-    }
+    // Next symbol index
+    this->current_character_index_ = next_symbol_index;
 
-#if DEBUG
     std::cout << "<" << offset << "," << length << ",";
     std::cout << symbol << ">\n";
+
+#if DEBUG
 
     std::cout << "Search Buffer tree:"
               << "\n";
@@ -129,65 +173,58 @@ std::tuple<int, int> LZ77::Encoder::MatchPattern()
   // Length returning value
   int length = 0;
 
-  // if (this->current_character_index_ <
-  //     this->look_ahead_buffer_size_)
-  // {
-  //   // Inserts a single character in the search buffer
-  //   // tree and sends a single symbol in the output
-  //   current_match_sequence = this->file_content_[this->current_character_index_];
-
-  //   auto match_sequence = this->search_buffer_tree_.find(current_match_sequence);
-
-  //   // Found a match!
-  //   if (match_sequence != this->search_buffer_tree_.end())
-  //   {
-  //     match_position = sequence_position_.at(*match_sequence);
-  //     // Distance between current character and
-  //     // match sequence position
-  //     offset = this->current_character_index_ - match_position;
-  //     length = 1;
-  //   }
-
-  //   this->search_buffer_tree_.insert(current_match_sequence);
-  //   sequence_position_[current_match_sequence] = this->current_character_index_;
-  // }
-
   // Search matching
-  std::tie(offset, length) = this->SeachMatching();
+  std::tie(offset, length) = this->SearchMatching();
 
   // Updates the Binary Search Tree
-  this->UpdateSearchBufferTree();
+  this->UpdateSearchBufferTree(length);
 
   return std::make_tuple(offset, length);
 }
 
-void LZ77::Encoder::UpdateSearchBufferTree()
+void LZ77::Encoder::UpdateSearchBufferTree(int length)
 {
   std::string next_to_delete;
 
   // Next node to be added
   // Current index plus
-  std::string add_node = this->file_content_.substr(
-      this->current_character_index_,
-      this->look_ahead_buffer_size_);
+  std::string add_node;
 
-  // Inserts in the list of nodes to be deleted
-  this->nodes_to_exclude.push_back(add_node);
+  // How many nodes exceeding are occupying
+  // the search buffer tree
+  int n_exceed_nodes;
 
-  // Inserting the node
-  this->search_buffer_tree_.insert(add_node);
-  sequence_position_[add_node] = this->current_character_index_;
+  for (int i = this->current_character_index_;
+       i < this->current_character_index_ + length + 1; i++)
+  {
+    add_node = this->file_content_.substr(
+        i,
+        this->look_ahead_buffer_size_);
+
+    // Inserts in the list of nodes to be deleted
+    this->nodes_to_exclude.push_back(add_node);
+
+    // Inserting the node
+    this->search_buffer_tree_.insert(add_node);
+    sequence_position_[add_node] = i;
+  }
 
   if (this->search_buffer_tree_.size() > this->search_buffer_size_)
   {
-    next_to_delete = this->nodes_to_exclude.front();
+    n_exceed_nodes = this->search_buffer_tree_.size() - this->search_buffer_size_;
+    for (int i = 0;
+         i < n_exceed_nodes;
+         i++)
+    {
 
-    this->nodes_to_exclude.erase(this->nodes_to_exclude.begin());
-    this->search_buffer_tree_.erase(next_to_delete);
+      next_to_delete = this->nodes_to_exclude.front();
+      this->nodes_to_exclude.erase(this->nodes_to_exclude.begin());
+      this->search_buffer_tree_.erase(next_to_delete);
+    }
   }
 }
 
-std::tuple<int, int> LZ77::Encoder::SeachMatching()
+std::tuple<int, int> LZ77::Encoder::SearchMatching()
 {
   // Offset returning value
   int offset = 0;
@@ -199,8 +236,6 @@ std::tuple<int, int> LZ77::Encoder::SeachMatching()
   // content file
   std::string current_character;
   current_character = this->file_content_[this->current_character_index_];
-
-
 
   // First character char from the
   // matching string sequence from search buffer
@@ -220,7 +255,7 @@ std::tuple<int, int> LZ77::Encoder::SeachMatching()
         this->search_buffer_tree_.end(),
         current_character);
 
-    // If there's a match, gets a first 
+    // If there's a match, gets a first
     // character from the match
     if (it != this->search_buffer_tree_.end())
     {
@@ -243,14 +278,70 @@ std::tuple<int, int> LZ77::Encoder::SeachMatching()
     // Matching lenght computation
     else
     {
-      std::tie(offset, length) = this->LargestMatch();
+      std::tie(offset, length) = this->LargestMatch(*it);
     }
   }
 
   return std::make_tuple(offset, length);
 }
 
-std::tuple<int, int> LZ77::Encoder::LargestMatch()
+std::tuple<int, int> LZ77::Encoder::LargestMatch(std::string match_string)
 {
-  return std::make_tuple(0, 0);
+  int match_position = this->sequence_position_[match_string];
+  int offset = this->current_character_index_ - match_position;
+
+#if DEBUG
+  std::cout << match_string
+            << " "
+            << this->look_ahead_buffer_
+            << std::endl;
+#endif
+
+  int length = 0;
+
+  // Compares each character from each string
+  for (int i = 0; i < match_string.size(); i++)
+  {
+    if (this->look_ahead_buffer_[i] == match_string[i])
+    {
+      length++;
+    }
+    else
+    {
+      break;
+    }
+  }
+
+  return std::make_tuple(offset, length);
+}
+
+void LZ77::Encoder::FlushProbabilityTableAsCSV()
+{
+  std::ofstream myfile;
+  myfile.open("histogram.csv");
+  std::vector<std::pair<double, int>> symbols;
+  char single_character;
+  int i = 0;
+
+  myfile << "Symbol,Probability\n";
+
+  for (auto const &x : this->GetSymbolTable())
+  {
+    i++;
+    symbols.push_back(std::make_pair(x.second, i));
+  }
+
+  std::sort(symbols.begin(),
+            symbols.end(),
+            std::greater<std::pair<double, int>>());
+
+  i = 0;
+
+  for (auto const &x : symbols)
+  {
+    i++;
+    myfile << i << "," << (x.first * 1000000) << "\n";
+  }
+
+  myfile.close();
 }
