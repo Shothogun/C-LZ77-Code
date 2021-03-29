@@ -135,6 +135,9 @@ void LZ77::Encoder::Encode()
     // Transmit encode
     this->output_encoding_ += std::to_string(offset) + std::to_string(length);
 
+    this->offset_sequence_buffer_.push_back(offset);
+    this->length_sequence_buffer_.push_back(length);
+
     if (next_symbol_index >= this->file_content_.size())
     {
       symbol = this->file_content_[last_one];
@@ -394,18 +397,16 @@ void LZ77::Encoder::EncodeOffsetLength()
   Huffman::Encoder *huffman_encoder_offset = new Huffman::Encoder();
   Huffman::Encoder *huffman_encoder_length = new Huffman::Encoder();
 
-  std::vector<int> offset_vector;
-  std::vector<int> length_vector;
+  // These sequence buffer is the offsets and lengths values
+  // written in a single concatenated string(without space).
+  // The Huffman code is pass trough these buffer, encoding
+  // the offset and lengths to be send.
+  huffman_encoder_offset->FillBuffer(this->offset_sequence_buffer_);
+  huffman_encoder_length->FillBuffer(this->length_sequence_buffer_);
 
-  for (auto const &triple : this->triples_vector_)
-  {
-    offset_vector.push_back(triple.offset);
-    length_vector.push_back(triple.length);
-  }
+  huffman_encoder_offset->ComputeHuffmanCode();
+  huffman_encoder_length->ComputeHuffmanCode();
 
-  huffman_encoder_offset->FillBuffer(offset_vector);
-  huffman_encoder_length->FillBuffer(length_vector);
-
-  huffman_encoder_offset->Encode();
-  huffman_encoder_length->Encode();
+  this->encoded_offset_codes = huffman_encoder_offset->GetEncodedContent();
+  this->encoded_length_codes = huffman_encoder_length->GetEncodedContent();
 }

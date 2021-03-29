@@ -149,6 +149,14 @@ namespace Huffman
     */
     void Encode();
 
+    //! Get Encoded content
+    /*
+     * Returns a vector of the enconded content.
+     * Each index is the i-th byte from the original file,
+     * storing the corresponding code.
+    */
+    std::vector<std::string> GetEncodedContent();
+
     //! Compress to File function
     /*
      * Writes the encoded_data_ to a 

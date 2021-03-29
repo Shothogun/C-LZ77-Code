@@ -1,6 +1,6 @@
 #include "../include/huffman.h"
 #include "../include/bitstream.h"
-#define DEBUG 0
+#define DEBUG 1
 #define DECODE_DEBUG 0
 
 int Huffman::Encoder::HowManyCharacters()
@@ -59,6 +59,29 @@ void Huffman::Encoder::FillBuffer(std::vector<int> buffer)
     // Each byte is a character
     this->CountCharacters(1);
   }
+
+  // Returns the string sequence
+  // representing the bits from the file
+  std::vector<bool> file_buffer = this->GetBuffer();
+
+  // A byte bitstream as a string
+  std::string byte_bitstream = "";
+
+  // Counts symbols
+  for (uint base = 0; base < file_buffer.size(); base += 8)
+  {
+    byte_bitstream.clear();
+
+    // Reads a byte sequence, represents a character
+    for (uint i = 0; i < 8; i++)
+    {
+      byte_bitstream = byte_bitstream + std::to_string(file_buffer[base + i]);
+    }
+
+    this->CountSymbol(byte_bitstream);
+  }
+
+  this->ComputeProbabilityTable();
 }
 
 std::vector<bool> Huffman::Encoder::GetBuffer()
@@ -331,6 +354,32 @@ void Huffman::Encoder::Encode()
       << "Liquid Compression rate: "
       << compression_rate
       << "%\n";
+}
+
+std::vector<std::string> Huffman::Encoder::GetEncodedContent()
+{
+  std::vector<std::string> encoded_content_vector;
+  std::string byte_bitstream = "";
+  std::string encoded_symbol = "";
+  std::string bit = "";
+
+  for (uint base = 0; base < this->file_content_.size(); base += 8)
+  {
+    byte_bitstream.clear();
+    encoded_symbol.clear();
+
+    // Constructs the byte symbol
+    for (uint i = 0; i < 8; i++)
+    {
+      byte_bitstream += std::to_string(this->file_content_[base + i]);
+    }
+
+    encoded_symbol = this->symbol_encode_[byte_bitstream];
+
+    encoded_content_vector.push_back(encoded_symbol);
+  }
+
+  return encoded_content_vector;
 }
 
 void Huffman::Encoder::CompressToFile(std::string file_name)

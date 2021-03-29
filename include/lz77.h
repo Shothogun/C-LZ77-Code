@@ -72,6 +72,32 @@ namespace LZ77
     */
     std::string output_encoding_;
 
+    //! Offset sequence buffer
+    /*
+     * Sequence of offsets produced on LZ77 encoding
+    */
+    std::vector<int> offset_sequence_buffer_;
+
+    //! Length sequence buffer
+    /*
+     * Sequence of lengths produced on LZ77 encoding
+    */
+    std::vector<int> length_sequence_buffer_;
+
+    //! Encoded offset codes
+    /*
+     * Sequence of offsets encoded from Huffman.
+     * Each index correspond to the ith triple.
+    */
+    std::vector<std::string> encoded_offset_codes;
+
+    //! Lengths offset codes
+    /*
+     * Sequence of lengths encoded from Huffman.
+     * Each index correspond to the ith triple.
+    */
+    std::vector<std::string> encoded_length_codes;
+
     //! File string stream
     /*
      * Its the list of all nodes to be deleted, preserving
