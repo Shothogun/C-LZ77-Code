@@ -12,14 +12,14 @@
 
 namespace LZ77
 {
-  struct output_triple
+  struct triple_struct
   {
     int offset;
     int length;
-    int codeword;
+    std::string codeword;
   };
 
-  typedef output_triple output_triple;
+  typedef triple_struct triple_struct;
 
   //! Encoder class
   /*
@@ -37,6 +37,12 @@ namespace LZ77
     */
     double entropy_;
     double average_rate_;
+
+    //!
+    /*
+     * Maps a symbol to its probability
+    */
+    std::vector<triple_struct> triples_vector_;
 
     //! Symbol Table
     /*
@@ -186,7 +192,19 @@ namespace LZ77
     */
     std::tuple<int, int> LargestMatch(std::string match_string);
 
+    //! Flush Probability Table As CSV
+    /*
+     * Writes symbols and its frequency 
+     * as csv file to histogram plotation
+    */
     void FlushProbabilityTableAsCSV();
+
+    //! Encodes offset and length
+    /*
+     * Encodes the offset and length values
+     * from the triples
+    */
+    void EncodeOffsetLength();
   };
 
   //! Decoder class

@@ -1,49 +1,8 @@
-Current index:0
 <0,0,c>
-cabra
-Current index:1
 <0,0,a>
-abrac
-cabra
-Current index:2
 <0,0,b>
-abrac
-braca
-cabra
-Current index:3
 <0,0,r>
-abrac
-braca
-cabra
-racad
-Current index:4
-<0,0,a>
-abrac
-acada
-braca
-cabra
-racad
-Current index:5
-<0,0,c>
-abrac
-acada
-braca
-cabra
-cadab
-racad
-Current index:6
-<0,0,a>
-abrac
-acada
-adabr
-braca
-cadab
-racad
-Current index:7
-<0,0,d>
-acada
-adabr
-braca
-cadab
-dabra
-racad
+<3,1,c>
+<5,1,d>
+<7,4,r>
+<3,5,d>

@@ -1,5 +1,6 @@
 #include <iostream>
 #include "../include/lz77.h"
+#include "../include/huffman.h"
 
 int main(int argc, char *argv[])
 {
@@ -10,6 +11,7 @@ int main(int argc, char *argv[])
 
   lz77_encoder->FillBuffer(file_name);
   lz77_encoder->Encode();
+  lz77_encoder->EncodeOffsetLength();
 
 
   return 0;  

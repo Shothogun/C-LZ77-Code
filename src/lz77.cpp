@@ -1,5 +1,7 @@
 #include "../include/lz77.h"
-#define DEBUG 1
+#include "../include/huffman.h"
+#define DEBUG 0
+#define TRIPLES_DEBUG 0
 
 void LZ77::Encoder::CountSymbol(std::string character)
 {
@@ -79,8 +81,12 @@ void LZ77::Encoder::Encode()
 {
   int offset, length;
 
+  int const last_one = this->file_content_.size() - 1;
+
   // Transmited symbol's index
   int next_symbol_index;
+
+  triple_struct triple;
 
   std::string symbol = "";
   this->look_ahead_buffer_ = "";
@@ -88,7 +94,7 @@ void LZ77::Encoder::Encode()
 #if DEBUG
   for (this->current_character_index_ = 0;
        this->current_character_index_ <
-       5;
+       this->file_content_.size();
        this->current_character_index_++)
 #else
   for (this->current_character_index_ = 0;
@@ -101,9 +107,17 @@ void LZ77::Encoder::Encode()
     std::cout << "Current index:" << this->current_character_index_ << std::endl;
 #endif
 
-    // If lookahead don't exceed bitstream end
-    if (this->current_character_index_ + this->look_ahead_buffer_size_ <=
-        this->file_content_.size())
+    // If lookahead exceed bitstream end
+    if (this->current_character_index_ + this->look_ahead_buffer_size_ - 1 >
+        this->file_content_.size() - 1)
+    {
+      // Updates lookahead
+      this->look_ahead_buffer_ =
+          this->file_content_.substr(this->current_character_index_,
+                                     this->file_content_.size() - this->current_character_index_);
+    }
+
+    else
     {
       // Updates lookahead
       this->look_ahead_buffer_ =
@@ -121,8 +135,13 @@ void LZ77::Encoder::Encode()
     // Transmit encode
     this->output_encoding_ += std::to_string(offset) + std::to_string(length);
 
+    if (next_symbol_index >= this->file_content_.size())
+    {
+      symbol = this->file_content_[last_one];
+    }
+
     // If there's not match
-    if (length == 0 && offset == 0)
+    else if (length == 0 && offset == 0)
     {
       symbol = this->file_content_[this->current_character_index_];
     }
@@ -142,6 +161,8 @@ void LZ77::Encoder::Encode()
 
     std::cout << "<" << offset << "," << length << ",";
     std::cout << symbol << ">\n";
+    triple_struct triple = {offset, length, symbol};
+    this->triples_vector_.push_back(triple);
 
 #if DEBUG
 
@@ -150,6 +171,21 @@ void LZ77::Encoder::Encode()
     for (auto const &a : this->search_buffer_tree_)
     {
       std::cout << a
+                << std::endl;
+    }
+#endif
+
+#if TRIPLES_DEBUG
+    std::cout << "Output Triples:"
+              << "\n";
+    for (auto const &a : this->triples_vector_)
+    {
+      std::cout << "Offset:"
+                << a.offset
+                << "\nLength:"
+                << a.length
+                << "\nSymbol:"
+                << a.codeword
                 << std::endl;
     }
 #endif
@@ -197,6 +233,11 @@ void LZ77::Encoder::UpdateSearchBufferTree(int length)
   for (int i = this->current_character_index_;
        i < this->current_character_index_ + length + 1; i++)
   {
+    if (i >= this->file_content_.size())
+    {
+      break;
+    }
+
     add_node = this->file_content_.substr(
         i,
         this->look_ahead_buffer_size_);
@@ -298,11 +339,13 @@ std::tuple<int, int> LZ77::Encoder::LargestMatch(std::string match_string)
 #endif
 
   int length = 0;
+  int const last_one = this->file_content_.size() - 1;
 
   // Compares each character from each string
   for (int i = 0; i < match_string.size(); i++)
   {
-    if (this->look_ahead_buffer_[i] == match_string[i])
+    if (this->look_ahead_buffer_[i] == match_string[i] &&
+        this->current_character_index_ + length < last_one)
     {
       length++;
     }
@@ -344,4 +387,25 @@ void LZ77::Encoder::FlushProbabilityTableAsCSV()
   }
 
   myfile.close();
+}
+
+void LZ77::Encoder::EncodeOffsetLength()
+{
+  Huffman::Encoder *huffman_encoder_offset = new Huffman::Encoder();
+  Huffman::Encoder *huffman_encoder_length = new Huffman::Encoder();
+
+  std::vector<int> offset_vector;
+  std::vector<int> length_vector;
+
+  for (auto const &triple : this->triples_vector_)
+  {
+    offset_vector.push_back(triple.offset);
+    length_vector.push_back(triple.length);
+  }
+
+  huffman_encoder_offset->FillBuffer(offset_vector);
+  huffman_encoder_length->FillBuffer(length_vector);
+
+  huffman_encoder_offset->Encode();
+  huffman_encoder_length->Encode();
 }
