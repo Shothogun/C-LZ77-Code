@@ -1,6 +1,6 @@
 #include "../include/huffman.h"
 #include "../include/bitstream.h"
-#define DEBUG 1
+#define DEBUG 0
 #define DECODE_DEBUG 0
 
 int Huffman::Encoder::HowManyCharacters()
@@ -97,6 +97,11 @@ void Huffman::Encoder::CountSymbol(std::string character)
 std::map<std::string, double> Huffman::Encoder::GetSymbolTable()
 {
   return this->symbol_table_;
+}
+
+std::map<std::string, std::string> Huffman::Encoder::GetSymbolEncode()
+{
+  return this->symbol_encode_;
 }
 
 void Huffman::Encoder::ComputeProbabilityTable()

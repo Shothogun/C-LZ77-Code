@@ -5,6 +5,7 @@
 #include <fstream>
 #include <algorithm>
 #include <string>
+#include <cstring>
 #include <vector>
 #include <set>
 #include <tuple>
@@ -110,14 +111,21 @@ namespace LZ77
      *  Search buffer size value used especially
      *  in the encoding process
     */
-    const int search_buffer_size_ = 7;
+    const int search_buffer_size_ = 2048;
 
     //! Look Ahead Buffer
     /*
      *  Look ahead buffer size value used especially
      *  in the encoding process  
     */
-    const int look_ahead_buffer_size_ = 6;
+    const int look_ahead_buffer_size_ = 255;
+
+    //! Match position
+    /*
+     *  Indicates the file's index position
+     *  where occurs the match 
+    */
+    int match_position_;
 
     //! Current charater index
     /*
@@ -225,12 +233,20 @@ namespace LZ77
     */
     void FlushProbabilityTableAsCSV();
 
-    //! Encodes offset and length
+    //! Compress to file
     /*
      * Encodes the offset and length values
-     * from the triples
+     * from the triples, and writes the 
+     * compressed file .lz77
     */
-    void EncodeOffsetLength();
+    void CompressToFile(std::string file_path);
+
+    //! Search Best Match
+    /*
+     * Search on tree the best sequence match
+     * to the current lookahead buffer
+    */
+    std::string SearchBestMatch();
   };
 
   //! Decoder class

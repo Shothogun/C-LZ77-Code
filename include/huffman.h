@@ -112,6 +112,12 @@ namespace Huffman
     */
     std::map<std::string, double> GetSymbolTable();
 
+    //! Get Symbol Encode 
+    /*
+     * Returns Symbol Encode pair
+    */
+    std::map<std::string, std::string> GetSymbolEncode();
+
     //! Computes probability table
     /*
      * This function computes the probability table 

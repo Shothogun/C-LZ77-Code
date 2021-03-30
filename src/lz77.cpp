@@ -1,5 +1,6 @@
 #include "../include/lz77.h"
 #include "../include/huffman.h"
+#include "../include/bitstream.h"
 #define DEBUG 0
 #define TRIPLES_DEBUG 0
 
@@ -162,10 +163,10 @@ void LZ77::Encoder::Encode()
     // Next symbol index
     this->current_character_index_ = next_symbol_index;
 
-    std::cout << "<" << offset << "," << length << ",";
-    std::cout << symbol << ">\n";
     triple_struct triple = {offset, length, symbol};
     this->triples_vector_.push_back(triple);
+    std::cout << "<" << offset << "," << length << ",";
+    std::cout << symbol << ">\n";
 
 #if DEBUG
 
@@ -276,11 +277,6 @@ std::tuple<int, int> LZ77::Encoder::SearchMatching()
   // Length returning value
   int length = 0;
 
-  // Current character being analysed from the
-  // content file
-  std::string current_character;
-  current_character = this->file_content_[this->current_character_index_];
-
   // First character char from the
   // matching string sequence from search buffer
   std::string match_first_character;
@@ -294,35 +290,18 @@ std::tuple<int, int> LZ77::Encoder::SearchMatching()
   // Matching search on tree
   else
   {
-    auto it = std::lower_bound(
-        this->search_buffer_tree_.begin(),
-        this->search_buffer_tree_.end(),
-        current_character);
-
-    // If there's a match, gets a first
-    // character from the match
-    if (it != this->search_buffer_tree_.end())
-    {
-      match_first_character = (*it)[0];
-    }
+    std::string match = this->SearchBestMatch();
 
     // No match!
-    if (it == this->search_buffer_tree_.end())
+    if (match == "")
     {
       return std::make_tuple(0, 0);
     }
 
-    // The found sequence doesn't have
-    // the same first character
-    else if (current_character != match_first_character)
-    {
-      return std::make_tuple(0, 0);
-    }
-
-    // Matching lenght computation
+    // Match, computes offset and length
     else
     {
-      std::tie(offset, length) = this->LargestMatch(*it);
+      std::tie(offset, length) = this->LargestMatch(match);
     }
   }
 
@@ -361,6 +340,51 @@ std::tuple<int, int> LZ77::Encoder::LargestMatch(std::string match_string)
   return std::make_tuple(offset, length);
 }
 
+std::string LZ77::Encoder::SearchBestMatch()
+{
+  std::string current_sequence = "";
+
+  int match_length = 0;
+  int i = this->current_character_index_;
+  std::set<std::string>::iterator it, match;
+
+  do
+  {
+    current_sequence += this->file_content_[i];
+
+    it = this->search_buffer_tree_
+             .lower_bound(current_sequence);
+
+    // Found a match!
+    if (it != this->search_buffer_tree_.end() &&
+        (*it)[match_length] == current_sequence[match_length])
+    {
+      match = it;
+      match_length++;
+      i++;
+    }
+
+    else
+    {
+      break;
+    }
+
+  } while (match_length < this->look_ahead_buffer_size_ &&
+           it != this->search_buffer_tree_.end());
+
+
+  // No match found!
+  if (match_length == 0)
+  {
+    return "";
+  }
+
+  else
+  {
+    return *match;
+  }
+}
+
 void LZ77::Encoder::FlushProbabilityTableAsCSV()
 {
   std::ofstream myfile;
@@ -392,8 +416,16 @@ void LZ77::Encoder::FlushProbabilityTableAsCSV()
   myfile.close();
 }
 
-void LZ77::Encoder::EncodeOffsetLength()
+void LZ77::Encoder::CompressToFile(std::string file_path)
 {
+
+  // Empty Bitstream object
+  Bitstream bstream;
+  std::string bit;
+
+  // ***** Debug *******
+  std::vector<bool> bstream_vector;
+
   Huffman::Encoder *huffman_encoder_offset = new Huffman::Encoder();
   Huffman::Encoder *huffman_encoder_length = new Huffman::Encoder();
 
@@ -409,4 +441,112 @@ void LZ77::Encoder::EncodeOffsetLength()
 
   this->encoded_offset_codes = huffman_encoder_offset->GetEncodedContent();
   this->encoded_length_codes = huffman_encoder_length->GetEncodedContent();
+
+  int offset_symbol_number = huffman_encoder_offset->GetSymbolTable().size();
+
+  // Inserts symbols number as bits
+  for (int i = 0; i < 16; i++)
+  {
+    bstream.writeBit((offset_symbol_number >> (15 - i)) & 1);
+    bstream_vector.push_back((offset_symbol_number >> (15 - i)) & 1);
+  }
+
+  std::map<std::string, std::string> offset_symbol_encode =
+      huffman_encoder_offset->GetSymbolEncode();
+
+  // Inserts array of tuples as bits
+  for (auto p : offset_symbol_encode)
+  {
+    // Inserts Symbol
+    for (int i = 0; i < 8; i++)
+    {
+      bit = p.first[i];
+      bstream.writeBit(stoi(bit));
+      bstream_vector.push_back(stoi(bit));
+    }
+
+    // Inserts encode size
+    for (uint i = 0; i < 8; i++)
+    {
+      bstream.writeBit((p.second.size() >> (7 - i)) & 1);
+      bstream_vector.push_back((p.second.size() >> (7 - i)) & 1);
+    }
+
+    // Inserts symbol encode
+    for (uint i = 0; i < p.second.size(); i++)
+    {
+      bit = p.second[i];
+      bstream.writeBit(stoi(bit));
+      bstream_vector.push_back(stoi(bit));
+    }
+  }
+
+  int length_symbol_number = huffman_encoder_length->GetSymbolTable().size();
+
+  // Inserts symbols number as bits
+  for (int i = 0; i < 16; i++)
+  {
+    bstream.writeBit((length_symbol_number >> (15 - i)) & 1);
+    bstream_vector.push_back((length_symbol_number >> (15 - i)) & 1);
+  }
+
+  std::map<std::string, std::string> length_symbol_encode =
+      huffman_encoder_offset->GetSymbolEncode();
+
+  // Inserts array of tuples as bits
+  for (auto p : length_symbol_encode)
+  {
+    // Inserts Symbol
+    for (int i = 0; i < 8; i++)
+    {
+      bit = p.first[i];
+      bstream.writeBit(stoi(bit));
+      bstream_vector.push_back(stoi(bit));
+    }
+
+    // Inserts encode size
+    for (uint i = 0; i < 8; i++)
+    {
+      bstream.writeBit((p.second.size() >> (7 - i)) & 1);
+      bstream_vector.push_back((p.second.size() >> (7 - i)) & 1);
+    }
+
+    // Inserts symbol encode
+    for (uint i = 0; i < p.second.size(); i++)
+    {
+      bit = p.second[i];
+      bstream.writeBit(stoi(bit));
+      bstream_vector.push_back(stoi(bit));
+    }
+  }
+
+  // Content write
+  for (auto const &triple : this->triples_vector_)
+  {
+    // Inserts offset size
+    for (uint i = 0; i < 16; i++)
+    {
+      bstream.writeBit((triple.offset >> (15 - i)) & 1);
+      bstream_vector.push_back((triple.offset >> (15 - i)) & 1);
+    }
+
+    // Inserts length
+    for (uint i = 0; i < 8; i++)
+    {
+      bstream.writeBit((triple.length >> (7 - i)) & 1);
+      bstream_vector.push_back((triple.offset >> (7 - i)) & 1);
+    }
+
+    char char_codeword[2];
+    std::strcpy(char_codeword, triple.codeword.c_str()); // or pass &s[0]
+
+    // Inserts codeword
+    for (uint i = 0; i < 8; i++)
+    {
+      bstream.writeBit((char_codeword[0] >> (7 - i)) & 1);
+      bstream_vector.push_back((char_codeword[0] >> (7 - i)) & 1);
+    }
+  }
+
+  bstream.flushesToFile(file_path);
 }
