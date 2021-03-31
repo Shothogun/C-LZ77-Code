@@ -35,6 +35,13 @@ namespace Huffman
     */
     int character_counter_;
 
+    //! Largest code size
+    /*
+     * Indicates the bits size require do represent
+     * all codes.
+    */
+    int codes_size_;
+
     //! File string stream
     /*
      * Its the content read from the file
@@ -100,6 +107,12 @@ namespace Huffman
     */
     std::vector<bool> GetBuffer();
 
+    //! Get code size
+    /*
+     * Returns codes size
+    */
+    int GetCodesSize();
+
     //! Count Symbol
     /*
      * Count the read symbol in the symbol_table
@@ -112,7 +125,7 @@ namespace Huffman
     */
     std::map<std::string, double> GetSymbolTable();
 
-    //! Get Symbol Encode 
+    //! Get Symbol Encode
     /*
      * Returns Symbol Encode pair
     */

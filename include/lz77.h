@@ -85,20 +85,6 @@ namespace LZ77
     */
     std::vector<int> length_sequence_buffer_;
 
-    //! Encoded offset codes
-    /*
-     * Sequence of offsets encoded from Huffman.
-     * Each index correspond to the ith triple.
-    */
-    std::vector<std::string> encoded_offset_codes;
-
-    //! Lengths offset codes
-    /*
-     * Sequence of lengths encoded from Huffman.
-     * Each index correspond to the ith triple.
-    */
-    std::vector<std::string> encoded_length_codes;
-
     //! File string stream
     /*
      * Its the list of all nodes to be deleted, preserving
@@ -238,6 +224,19 @@ namespace LZ77
      * Encodes the offset and length values
      * from the triples, and writes the 
      * compressed file .lz77
+     * 
+     * Header:
+     *   === Offset Huffman header ===
+     *   Symbol number: 2B
+     *   Tuples: (1B,1B,symboll_size) -> (symbol,size,code)
+     *
+     *   === Length Huffman header ===
+     *   Symbol number: 2B
+     *   Tuples: (1B,1B,symboll_size) -> (symbol,size,code)
+     *
+     * Content:
+     *   Triples -> (offset_size, length_size, 1B) -> (offset, length, symbol)
+     *   
     */
     void CompressToFile(std::string file_path);
 
@@ -259,9 +258,62 @@ namespace LZ77
   class Decoder
   {
   private:
-    Decoder();
+    //! Current Bit
+    /*
+     * Express the current bit 
+     * read from the compressed file
+    */
+    int current_bit_;
+
+    //! Encoded Content Buffer
+    /*
+     * .lz77 file's bits content buffer
+    */
+    std::vector<bool> encoded_content_buffer_;
+
+    //! Decompressed file buffer
+    /*
+     * Out decompressed file buffer
+    */
+    std::vector<bool> decompressed_content_buffer;
+
+    //! Offset Code to symbol
+    /*
+     * Huffman's code to symbol translation
+     * In: Code Out: Original Symbol
+    */
+    std::map<std::string, std::string> offset_code_to_symbol_;
+
+    //! Length Code to symbol
+    /*
+     * Huffman's code to symbol translation
+     * In: Code Out: Original Symbol
+    */
+    std::map<std::string, std::string> length_code_to_symbol_;
 
   public:
+    //! Decompress to File function
+    /*
+     * Get the coded file content(encoded_content_buffer_)
+     * and translates it to the original decompressed 
+     * decompressed_content_buffer
+    */
+    void DecompressFromFile(std::string file_path);
+
+    //! Decode
+    /*
+     * Gets the encoded_content_buffer_ bits and 
+     * decodes it to its original content decompressed
+    */
+    void Decode(std::string option);
+
+    //! Decompress to File function
+    /*
+     * Get the coded file content(encoded_content_buffer_)
+     * and translates it to the original decompressed 
+     * decompressed_content_buffer
+    */
+    void DecompressLZ77Code();
   };
 } // namespace LZ77
 

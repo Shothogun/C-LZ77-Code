@@ -1,6 +1,6 @@
 #include "../include/huffman.h"
 #include "../include/bitstream.h"
-#define DEBUG 0
+#define DEBUG 1
 #define DECODE_DEBUG 0
 
 int Huffman::Encoder::HowManyCharacters()
@@ -16,6 +16,11 @@ int Huffman::Encoder::CharactersQuantity()
 void Huffman::Encoder::CountCharacters(int n_characters)
 {
   this->character_counter_ += n_characters;
+}
+
+int Huffman::Encoder::GetCodesSize()
+{
+  return this->codes_size_;
 }
 
 void Huffman::Encoder::FillBuffer(std::string file_path)
@@ -50,13 +55,12 @@ void Huffman::Encoder::FillBuffer(std::vector<int> buffer)
   // Gets each single string from buffer
   for (auto const &content : buffer)
   {
-    // Gets each bit from the byte
-    for (int i = 7; i >= 0; i--)
+    // Gets each bit from the word
+    for (int i = 15; i >= 0; i--)
     {
       this->file_content_.push_back(((content >> i) & 1));
     }
 
-    // Each byte is a character
     this->CountCharacters(1);
   }
 
@@ -64,21 +68,21 @@ void Huffman::Encoder::FillBuffer(std::vector<int> buffer)
   // representing the bits from the file
   std::vector<bool> file_buffer = this->GetBuffer();
 
-  // A byte bitstream as a string
-  std::string byte_bitstream = "";
+  // A word bitstream as a string
+  std::string word_bitstream = "";
 
   // Counts symbols
-  for (uint base = 0; base < file_buffer.size(); base += 8)
+  for (uint base = 0; base < file_buffer.size(); base += 15)
   {
-    byte_bitstream.clear();
+    word_bitstream.clear();
 
-    // Reads a byte sequence, represents a character
-    for (uint i = 0; i < 8; i++)
+    // Reads a word sequence, represents a character
+    for (uint i = 0; i < 15; i++)
     {
-      byte_bitstream = byte_bitstream + std::to_string(file_buffer[base + i]);
+      word_bitstream = word_bitstream + std::to_string(file_buffer[base + i]);
     }
 
-    this->CountSymbol(byte_bitstream);
+    this->CountSymbol(word_bitstream);
   }
 
   this->ComputeProbabilityTable();
@@ -368,6 +372,8 @@ std::vector<std::string> Huffman::Encoder::GetEncodedContent()
   std::string encoded_symbol = "";
   std::string bit = "";
 
+  this->codes_size_ = 0;
+
   for (uint base = 0; base < this->file_content_.size(); base += 8)
   {
     byte_bitstream.clear();
@@ -380,6 +386,8 @@ std::vector<std::string> Huffman::Encoder::GetEncodedContent()
     }
 
     encoded_symbol = this->symbol_encode_[byte_bitstream];
+
+    this->codes_size_ = std::max(this->codes_size_, (int) encoded_symbol.size());
 
     encoded_content_vector.push_back(encoded_symbol);
   }

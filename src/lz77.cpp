@@ -1,7 +1,10 @@
 #include "../include/lz77.h"
 #include "../include/huffman.h"
 #include "../include/bitstream.h"
-#define DEBUG 0
+#include "errno.h"
+
+#define FOR 0
+#define DEBUG 1
 #define TRIPLES_DEBUG 0
 
 void LZ77::Encoder::CountSymbol(std::string character)
@@ -33,6 +36,8 @@ void LZ77::Encoder::FillBuffer(std::string file_path)
   // Single character from file content
   std::string character;
 
+  char c;
+
   // Error, file no found
   if (!f)
   {
@@ -43,10 +48,9 @@ void LZ77::Encoder::FillBuffer(std::string file_path)
   // Initializes file content as empty
   this->file_content_ = "";
 
-  // Fill file content as a great string
-  while (getline(f, line_read))
+  while (f.get(c))
   {
-    this->file_content_ += line_read;
+    this->file_content_ += c;
   }
   f.close();
 
@@ -92,10 +96,10 @@ void LZ77::Encoder::Encode()
   std::string symbol = "";
   this->look_ahead_buffer_ = "";
 
-#if DEBUG
+#if FOR
   for (this->current_character_index_ = 0;
        this->current_character_index_ <
-       this->file_content_.size();
+       4;
        this->current_character_index_++)
 #else
   for (this->current_character_index_ = 0;
@@ -165,11 +169,10 @@ void LZ77::Encoder::Encode()
 
     triple_struct triple = {offset, length, symbol};
     this->triples_vector_.push_back(triple);
-    std::cout << "<" << offset << "," << length << ",";
-    std::cout << symbol << ">\n";
 
 #if DEBUG
-
+    std::cout << "<" << offset << "," << length << ",";
+    std::cout << symbol << ">\n";
     std::cout << "Search Buffer tree:"
               << "\n";
     for (auto const &a : this->search_buffer_tree_)
@@ -372,7 +375,6 @@ std::string LZ77::Encoder::SearchBestMatch()
   } while (match_length < this->look_ahead_buffer_size_ &&
            it != this->search_buffer_tree_.end());
 
-
   // No match found!
   if (match_length == 0)
   {
@@ -439,9 +441,6 @@ void LZ77::Encoder::CompressToFile(std::string file_path)
   huffman_encoder_offset->ComputeHuffmanCode();
   huffman_encoder_length->ComputeHuffmanCode();
 
-  this->encoded_offset_codes = huffman_encoder_offset->GetEncodedContent();
-  this->encoded_length_codes = huffman_encoder_length->GetEncodedContent();
-
   int offset_symbol_number = huffman_encoder_offset->GetSymbolTable().size();
 
   // Inserts symbols number as bits
@@ -458,7 +457,7 @@ void LZ77::Encoder::CompressToFile(std::string file_path)
   for (auto p : offset_symbol_encode)
   {
     // Inserts Symbol
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < 16; i++)
     {
       bit = p.first[i];
       bstream.writeBit(stoi(bit));
@@ -520,21 +519,24 @@ void LZ77::Encoder::CompressToFile(std::string file_path)
     }
   }
 
+  int offset_size = huffman_encoder_offset->GetCodesSize();
+  int length_size = huffman_encoder_length->GetCodesSize();
+
   // Content write
   for (auto const &triple : this->triples_vector_)
   {
     // Inserts offset size
-    for (uint i = 0; i < 16; i++)
+    for (uint i = 0; i < offset_size; i++)
     {
-      bstream.writeBit((triple.offset >> (15 - i)) & 1);
-      bstream_vector.push_back((triple.offset >> (15 - i)) & 1);
+      bstream.writeBit((triple.offset >> (offset_size - 1 - i)) & 1);
+      bstream_vector.push_back((triple.offset >> (offset_size - 1 - i)) & 1);
     }
 
     // Inserts length
-    for (uint i = 0; i < 8; i++)
+    for (uint i = 0; i < length_size; i++)
     {
-      bstream.writeBit((triple.length >> (7 - i)) & 1);
-      bstream_vector.push_back((triple.offset >> (7 - i)) & 1);
+      bstream.writeBit((triple.length >> (length_size - 1 - i)) & 1);
+      bstream_vector.push_back((triple.offset >> (length_size - 1 - i)) & 1);
     }
 
     char char_codeword[2];
@@ -548,5 +550,255 @@ void LZ77::Encoder::CompressToFile(std::string file_path)
     }
   }
 
+  std::cout << huffman_encoder_length->GetCodesSize() << std::endl;
+
   bstream.flushesToFile(file_path);
+}
+
+void LZ77::Decoder::DecompressFromFile(std::string file_path)
+{
+  // Initialize current decoder reader position
+  this->current_bit_ = 0;
+
+  // Empty Bitstream object
+  Bitstream bstream = Bitstream(file_path);
+  bool bit;
+
+  // Inserts file content in decoder buffer
+  while (bstream.hasBits())
+  {
+    bit = bstream.readBit();
+    this->encoded_content_buffer_.push_back(bit);
+  }
+
+  if (DEBUG)
+  {
+    std::cout << "-----------------------------\n"
+              << "-- Buffer Read from .lz77 ---\n"
+              << "-----------------------------\n";
+    for (auto x : this->encoded_content_buffer_)
+    {
+      std::cout << to_string(x);
+    }
+    std::cout << "\n\n";
+  }
+}
+
+void LZ77::Decoder::Decode(std::string option)
+{
+  // How many symbols are in the header
+  int n_symbols = 0;
+
+  // Current bit set to read
+  // in the encoded_content_buffer
+  int current_bit = 0;
+
+  // Symbol read from the header
+  std::string symbol;
+
+  // Size read from header
+  int symbol_size = 0;
+
+  // Encode read from the header
+  std::string encode;
+
+  // Encode read from the header
+  std::map<std::string, std::string> code_to_symbol;
+
+  // Gets the number of symbols
+  // contained in the header
+  for (int i = 0; i < 16; i++)
+  {
+    // Converts the 2 byte binary
+    // n_symbols form to a decimal count
+    n_symbols |= ((this->encoded_content_buffer_[current_bit]) << (15 - i));
+    current_bit++;
+  }
+
+  // Parses header to an map
+  // of code to original symbol, for each symbol
+  while (n_symbols--)
+  {
+    symbol.clear();
+    encode.clear();
+    symbol_size = 0;
+
+    // Read symbol
+    for (int i = 0; i < 8; i++)
+    {
+      symbol = symbol +
+               std::to_string(this->encoded_content_buffer_[current_bit]);
+      current_bit++;
+    }
+
+    // Read size
+    for (int i = 0; i < 8; i++)
+    {
+      // Converts the 2 byte binary
+      // symbol size form to a decimal count
+      symbol_size |= ((this->encoded_content_buffer_[current_bit]) << (7 - i));
+      current_bit++;
+    }
+
+    // Read code
+    for (int i = 0; i < symbol_size; i++)
+    {
+      encode = encode +
+               std::to_string(this->encoded_content_buffer_[current_bit]);
+      current_bit++;
+    }
+
+    code_to_symbol[encode] = symbol;
+  }
+
+  this->current_bit_ += current_bit;
+
+  if (option == "offset")
+  {
+    this->offset_code_to_symbol_ = code_to_symbol;
+  }
+
+  else if (option == "length")
+  {
+    this->length_code_to_symbol_ = code_to_symbol;
+  }
+
+  else
+  {
+    throw std::invalid_argument("Not valid option");
+  }
+}
+
+void LZ77::Decoder::DecompressLZ77Code()
+{
+
+  enum DECODING_STATE
+  {
+    kOffset,
+    kLength,
+    kSymbol,
+    kDecode
+  };
+
+  DECODING_STATE state = kOffset;
+
+  // Express the current code expression
+  // read from then compressed file
+  std::string code = "";
+
+  // Bit read from the compressed file
+  std::string bit = "";
+
+  // Single bit read from the file
+  std::string read_from_file = "";
+
+  std::map<std::string, std::string>::iterator it;
+
+  int length, offset;
+
+  int current_bit = 0;
+
+  while (this->current_bit_ <
+         this->encoded_content_buffer_.size())
+  {
+    read_from_file = std::to_string(
+        this->encoded_content_buffer_[this->current_bit_]);
+    code = code + read_from_file;
+
+    if (state == kOffset)
+    {
+      // Theres a corresponding code read from the
+      // compressed file?
+      if ((it = this->offset_code_to_symbol_.find(code)) !=
+          this->offset_code_to_symbol_.end())
+      {
+        std::string string_offset = it->second;
+        std::string bit;
+        offset = 0;
+        current_bit = 0;
+
+        for (int i = 0; i < 16; i++)
+        {
+          if (i >= string_offset.size())
+          {
+            offset |= (0 << (15 - i));
+            continue;
+          }
+
+          bit = string_offset[current_bit_];
+          offset |= (stoi(bit) << (15 - i));
+          current_bit++;
+        }
+
+        code.clear();
+        state = kLength;
+      }
+    }
+
+    else if (state == kLength)
+    {
+      // Theres a corresponding code read from the
+      // compressed file?
+      if ((it = this->length_code_to_symbol_.find(code)) !=
+          this->length_code_to_symbol_.end())
+      {
+        std::string string_length = it->second;
+        std::string bit;
+        length = 0;
+        current_bit = 0;
+
+        for (int i = 0; i < 8; i++)
+        {
+
+          if (i >= string_length.size())
+          {
+            length |= (0 << (7 - i));
+            continue;
+          }
+
+          bit = string_length[current_bit_];
+          length |= (stoi(bit) << (15 - i));
+          current_bit++;
+        }
+        code.clear();
+        state = kSymbol;
+      }
+    }
+
+    else
+    {
+
+      std::string bit;
+      std::string match = "";
+
+      // Matching writting
+      if (length > 0)
+      {
+        // Codeword to write
+        for (int i = 0; i < length; i++)
+        {
+          bit = this->encoded_content_buffer_[this->current_bit_ -
+                                              offset + i];
+          this->decompressed_content_buffer.push_back(stoi(bit));
+        }
+      }
+
+      // Codeword to write
+      for (int i = 0; i < 8; i++)
+      {
+        bit = std::to_string(
+            this->encoded_content_buffer_[this->current_bit_ + i]);
+        this->decompressed_content_buffer.push_back(stoi(bit));
+      }
+
+      this->current_bit_ += 8;
+
+      code.clear();
+      match.clear()
+          state = kOffset;
+      continue;
+    }
+
+    this->current_bit_++;
+  }
 }
