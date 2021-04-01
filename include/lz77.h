@@ -314,7 +314,21 @@ namespace LZ77
      * decompressed_content_buffer
     */
     void DecompressLZ77Code();
+
+    //! Decompress to File function
+    /* 
+     * Writes the decompressed_content_buffer 
+     * to a output file 
+    */
+    void DecompressToFile(std::string file_name);
   };
+
+  //! 4B Integer To Binary String function
+  /*
+     * Receives a integer and converts it
+     * to an string sequence of bits
+    */
+  std::string IntToBinString(int value, int string_size);
 } // namespace LZ77
 
 #endif

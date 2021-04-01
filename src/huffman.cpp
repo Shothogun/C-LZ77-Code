@@ -1,6 +1,6 @@
 #include "../include/huffman.h"
 #include "../include/bitstream.h"
-#define DEBUG 1
+#define DEBUG 0
 #define DECODE_DEBUG 0
 
 int Huffman::Encoder::HowManyCharacters()
@@ -72,12 +72,12 @@ void Huffman::Encoder::FillBuffer(std::vector<int> buffer)
   std::string word_bitstream = "";
 
   // Counts symbols
-  for (uint base = 0; base < file_buffer.size(); base += 15)
+  for (uint base = 0; base < file_buffer.size(); base += 16)
   {
     word_bitstream.clear();
 
     // Reads a word sequence, represents a character
-    for (uint i = 0; i < 15; i++)
+    for (uint i = 0; i < 16; i++)
     {
       word_bitstream = word_bitstream + std::to_string(file_buffer[base + i]);
     }
