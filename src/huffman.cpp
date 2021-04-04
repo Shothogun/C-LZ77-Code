@@ -1,5 +1,6 @@
 #include "../include/huffman.h"
 #include "../include/bitstream.h"
+#include "../include/lz77.h"
 #define DEBUG 0
 #define DECODE_DEBUG 0
 
@@ -50,6 +51,38 @@ void Huffman::Encoder::FillBuffer(std::string file_path)
   }
 }
 
+void Huffman::Encoder::FlushProbabilityTableAsCSV(std::string file_name)
+{
+  std::ofstream myfile;
+  myfile.open(file_name + ".csv");
+  std::vector<std::pair<double, std::string>> symbols;
+  char single_character;
+  int i = 0;
+
+  myfile << "Symbol,Probability\n";
+
+  for (auto const &x : this->GetSymbolTable())
+  {
+    symbols.push_back(std::make_pair(x.second, x.first));
+  }
+
+  std::sort(symbols.begin(),
+            symbols.end(),
+            std::greater<std::pair<double, std::string>>());
+
+  i = 0;
+  int number;
+
+  for (auto const &x : symbols)
+  {
+    i++;
+    number = LZ77::BinStringToInt(x.second);
+    myfile << (number) << "," << (x.first) << "\n";
+  }
+
+  myfile.close();
+}
+
 void Huffman::Encoder::FillBuffer(std::vector<int> buffer)
 {
   // Gets each single string from buffer
@@ -84,8 +117,6 @@ void Huffman::Encoder::FillBuffer(std::vector<int> buffer)
 
     this->CountSymbol(word_bitstream);
   }
-
-  this->ComputeProbabilityTable();
 }
 
 std::vector<bool> Huffman::Encoder::GetBuffer()
@@ -241,6 +272,40 @@ void Huffman::Encoder::ComputeHuffmanCode()
 
     std::cout << "\n";
   }
+
+  double entropy = 0;
+
+  // Entropy computation
+  for (auto const &x : this->GetSymbolTable())
+  {
+    entropy += -(x.second * log2(x.second));
+  }
+
+  this->entropy_ = entropy;
+
+  std::cout << "Entropy:\t"
+            << entropy
+            << " bits/symbol\n";
+
+  // Bits per symbol in new encoding
+  double average_rate = 0;
+
+  for (auto const &x : this->GetSymbolTable())
+  {
+    average_rate += (this->symbol_encode_[x.first].size()) * x.second;
+  }
+
+  this->average_rate_ = average_rate;
+
+  std::cout
+      << "Average size:\t"
+      << average_rate
+      << " bits/symbol\n";
+
+  std::cout
+      << "Difference:\t"
+      << (this->average_rate_ - this->entropy_)
+      << " bits/symbol\n";
 }
 
 void Huffman::Encoder::Encode()
@@ -323,26 +388,6 @@ void Huffman::Encoder::Encode()
               << "-----------------------------\n\n";
   }
 
-  // Bits per symbol in new encoding
-  double average_rate = 0;
-
-  for (auto const &x : this->GetSymbolTable())
-  {
-    average_rate += (this->symbol_encode_[x.first].size()) * x.second;
-  }
-
-  this->average_rate_ = average_rate;
-
-  std::cout
-      << "Average size:\t"
-      << average_rate
-      << " bits/symbol\n";
-
-  std::cout
-      << "Difference:\t"
-      << (this->average_rate_ - this->entropy_)
-      << " bits/symbol\n";
-
   double compression_rate = 1;
   compression_rate -= (double)this->encoded_data_.size() /
                       (double)this->file_content_.size();
@@ -387,7 +432,7 @@ std::vector<std::string> Huffman::Encoder::GetEncodedContent()
 
     encoded_symbol = this->symbol_encode_[byte_bitstream];
 
-    this->codes_size_ = std::max(this->codes_size_, (int) encoded_symbol.size());
+    this->codes_size_ = std::max(this->codes_size_, (int)encoded_symbol.size());
 
     encoded_content_vector.push_back(encoded_symbol);
   }

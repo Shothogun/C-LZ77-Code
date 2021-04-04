@@ -8,6 +8,7 @@
 #include <vector>
 #include <stack>
 #include <iterator>
+#include <cmath>
 
 namespace Huffman
 {
@@ -138,6 +139,13 @@ namespace Huffman
      * counting in the source input file.
     */
     void ComputeProbabilityTable();
+
+    //! Flush Probability Table As CSV
+    /*
+     * Writes symbols and its frequency 
+     * as csv file to histogram plotation
+    */
+    void FlushProbabilityTableAsCSV(std::string file_name);
 
     //! Compute Huffman Code
     /*

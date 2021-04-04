@@ -329,6 +329,13 @@ namespace LZ77
      * to an string sequence of bits
     */
   std::string IntToBinString(int value, int string_size);
+
+  //! 4B Integer To Binary String function
+  /*
+     * Receives a string and converts it
+     * to an integer
+    */
+  int BinStringToInt(std::string bin_value);
 } // namespace LZ77
 
 #endif

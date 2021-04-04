@@ -8,6 +8,7 @@
 #define DEBUG_DECODE 0
 #define TRIPLES_DEBUG 0
 #define DEBUG_COMPRESSED_BSTREAM 0
+#define EXPORT_HISTOGRAM 0
 
 void LZ77::Encoder::CountSymbol(std::string character)
 {
@@ -65,8 +66,6 @@ void LZ77::Encoder::FillBuffer(std::string file_path)
   }
 
   this->ComputeProbabilityTable();
-
-  this->FlushProbabilityTableAsCSV();
 
 #if DEBUG
   std::cout << "-----------------------------\n"
@@ -139,12 +138,12 @@ void LZ77::Encoder::Encode()
 
     next_symbol_index = this->current_character_index_ + length;
 
-    // Transmit encode
-    this->output_encoding_ += std::to_string(offset) + std::to_string(length);
-
     this->offset_sequence_buffer_.push_back(offset);
     this->length_sequence_buffer_.push_back(length);
 
+    // There's a match, but exceeds the
+    // content buffer, send only the last symbol
+    // in the triple
     if (next_symbol_index >= this->file_content_.size())
     {
       symbol = this->file_content_[last_one];
@@ -163,8 +162,6 @@ void LZ77::Encoder::Encode()
       symbol =
           this->file_content_[next_symbol_index];
     }
-
-    this->output_encoding_ += symbol;
 
     // Next symbol index
     this->current_character_index_ = next_symbol_index;
@@ -219,6 +216,14 @@ std::tuple<int, int> LZ77::Encoder::MatchPattern()
 
   // Search matching
   std::tie(offset, length) = this->SearchMatching();
+
+  // Minimum match size, sends as there's
+  // no match. A exception case
+  if(length < 0)
+  {
+    length = 0;
+    offset = 0;
+  }
 
   // Updates the Binary Search Tree
   this->UpdateSearchBufferTree(length);
@@ -438,6 +443,13 @@ void LZ77::Encoder::CompressToFile(std::string file_path)
   // the offset and lengths to be send.
   huffman_encoder_offset->FillBuffer(this->offset_sequence_buffer_);
   huffman_encoder_length->FillBuffer(this->length_sequence_buffer_);
+
+#if EXPORT_HISTOGRAM
+  huffman_encoder_length->FlushProbabilityTableAsCSV("length");
+  huffman_encoder_offset->FlushProbabilityTableAsCSV("offset");
+#endif
+  huffman_encoder_offset->ComputeProbabilityTable();
+  huffman_encoder_length->ComputeProbabilityTable();
 
   huffman_encoder_offset->ComputeHuffmanCode();
   huffman_encoder_length->ComputeHuffmanCode();
@@ -882,6 +894,24 @@ std::string LZ77::IntToBinString(int value, int string_size)
   }
 
   return bin;
+}
+
+int LZ77::BinStringToInt(std::string bin_value)
+{
+  int value_size = bin_value.size();
+  int int_value = 0;
+  std::string bit;
+
+  // Read size
+  for (int i = 0; i < value_size; i++)
+  {
+    bit = bin_value[i];
+    // Converts the 2 byte binary
+    // symbol size form to a decimal count
+    int_value |= (std::stoi(bit) << ((value_size - 1) - i));
+  }
+
+  return int_value;
 }
 
 void LZ77::Decoder::DecompressToFile(std::string file_name)
