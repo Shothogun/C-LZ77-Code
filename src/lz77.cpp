@@ -9,6 +9,7 @@
 #define TRIPLES_DEBUG 0
 #define DEBUG_COMPRESSED_BSTREAM 0
 #define EXPORT_HISTOGRAM 0
+#define ENCODE_CODEWORD 0
 
 void LZ77::Encoder::CountSymbol(std::string character)
 {
@@ -163,6 +164,8 @@ void LZ77::Encoder::Encode()
           this->file_content_[next_symbol_index];
     }
 
+    this->codeword_sequence_buffer_.push_back(symbol);
+
     // Next symbol index
     this->current_character_index_ = next_symbol_index;
 
@@ -219,7 +222,7 @@ std::tuple<int, int> LZ77::Encoder::MatchPattern()
 
   // Minimum match size, sends as there's
   // no match. A exception case
-  if(length < 0)
+  if (length < 0)
   {
     length = 0;
     offset = 0;
@@ -437,6 +440,10 @@ void LZ77::Encoder::CompressToFile(std::string file_path)
   Huffman::Encoder *huffman_encoder_offset = new Huffman::Encoder();
   Huffman::Encoder *huffman_encoder_length = new Huffman::Encoder();
 
+#if ENCODE_CODEWORD
+  Huffman::Encoder *huffman_encoder_codeword = new Huffman::Encoder();
+#endif
+
   // These sequence buffer is the offsets and lengths values
   // written in a single concatenated string(without space).
   // The Huffman code is pass trough these buffer, encoding
@@ -444,12 +451,22 @@ void LZ77::Encoder::CompressToFile(std::string file_path)
   huffman_encoder_offset->FillBuffer(this->offset_sequence_buffer_);
   huffman_encoder_length->FillBuffer(this->length_sequence_buffer_);
 
+#if ENCODE_CODEWORD
+  huffman_encoder_codeword->FillBuffer(this->codeword_sequence_buffer_);
+#endif
+
 #if EXPORT_HISTOGRAM
   huffman_encoder_length->FlushProbabilityTableAsCSV("length");
   huffman_encoder_offset->FlushProbabilityTableAsCSV("offset");
 #endif
   huffman_encoder_offset->ComputeProbabilityTable();
   huffman_encoder_length->ComputeProbabilityTable();
+
+
+#if ENCODE_CODEWORD
+  huffman_encoder_codeword->ComputeProbabilityTable();
+  huffman_encoder_codeword->ComputeHuffmanCode();
+#endif
 
   huffman_encoder_offset->ComputeHuffmanCode();
   huffman_encoder_length->ComputeHuffmanCode();

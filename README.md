@@ -9,10 +9,11 @@ $ make clean && make
 ```
 And execute:
 ```
-$ ./LZ77 ArquivosParaComprimir/<input_file>
+$ ./LZ77 ArquivosParaComprimir/<input_filename> <output_filename>
 ```
 # Results
 
 After executing the above command and running the program, two files will be 
-generated acording to the input file: out.lz77(compressed file) and decompressed
-(the decompressed file from the out.huff, that should be equal `<input_file>`)
+generated acording to the input file: output_filename.lz77(compressed file) and 
+output_filename.decompressed (the decompressed file from the out.lz77, that should 
+be equal to `<input_file>`)

@@ -88,6 +88,12 @@ namespace Huffman
     */
     void FillBuffer(std::vector<int> buffer);
 
+    //! Fill stream
+    /*
+     * Fill the Coder buffer with a buffer
+    */
+    void FillBuffer(std::vector<std::string> buffer);
+
     //! How many Characters
     /*
      * Returns the number of characters from read

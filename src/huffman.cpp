@@ -119,6 +119,45 @@ void Huffman::Encoder::FillBuffer(std::vector<int> buffer)
   }
 }
 
+void Huffman::Encoder::FillBuffer(std::vector<std::string> buffer)
+{
+  char bit[2];
+  
+  // Gets each single string from buffer
+  for (auto const &content : buffer)
+  {
+    // Gets each bit from the word
+    for (int i = 15; i >= 0; i--)
+    {
+      std::strcpy(bit, content.c_str()); // or pass &s[0]
+      this->file_content_.push_back(((bit[0] >> i) & 1));
+    }
+
+    this->CountCharacters(1);
+  }
+
+  // Returns the string sequence
+  // representing the bits from the file
+  std::vector<bool> file_buffer = this->GetBuffer();
+
+  // A word bitstream as a string
+  std::string word_bitstream = "";
+
+  // Counts symbols
+  for (uint base = 0; base < file_buffer.size(); base += 16)
+  {
+    word_bitstream.clear();
+
+    // Reads a word sequence, represents a character
+    for (uint i = 0; i < 16; i++)
+    {
+      word_bitstream = word_bitstream + std::to_string(file_buffer[base + i]);
+    }
+
+    this->CountSymbol(word_bitstream);
+  }
+}
+
 std::vector<bool> Huffman::Encoder::GetBuffer()
 {
   return this->file_content_;

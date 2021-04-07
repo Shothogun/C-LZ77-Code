@@ -85,6 +85,12 @@ namespace LZ77
     */
     std::vector<int> length_sequence_buffer_;
 
+    //! Symbols sequence buffer
+    /*
+     * Sequence of symbols sent on LZ77 triples
+    */
+    std::vector<std::string> codeword_sequence_buffer_;
+
     //! File string stream
     /*
      * Its the list of all nodes to be deleted, preserving
